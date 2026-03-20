@@ -19,6 +19,9 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Compile seed.ts to JS so we don't need tsx at runtime
+RUN npx esbuild prisma/seed.ts --bundle --platform=node --outfile=prisma/seed.js --external:@prisma/client --external:bcryptjs
+
 RUN npm run build
 
 # ---- Production ----
@@ -39,14 +42,11 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy seed + entrypoint
-COPY --from=builder /app/prisma/seed.ts ./prisma/seed.ts
-COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
-COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
-COPY --from=deps /app/node_modules/esbuild ./node_modules/esbuild
+# Copy compiled seed + prisma CLI + bcryptjs for entrypoint
+COPY --from=builder /app/prisma/seed.js ./prisma/seed.js
+COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
 COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
-COPY --from=deps /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
-COPY --from=deps /app/node_modules/resolve-pkg-maps ./node_modules/resolve-pkg-maps
+COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 
 # Create uploads directory
 RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
