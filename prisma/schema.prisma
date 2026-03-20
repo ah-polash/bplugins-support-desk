@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  SUPPORT_ADMIN
+  SUPPORT_AGENT
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+  SPAM
+}
+
+model SpamRule {
+  id        String   @id @default(cuid())
+  type      String   // subject_keyword | sender_domain | sender_email | body_keyword | sender_name
+  value     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(SUPPORT_AGENT)
+  isActive  Boolean  @default(true)
+  signature String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketAssignments  TicketAssignee[]
+  notes              Note[]
+  activities         Activity[]
+  defaultAssigneeFor AppSettings[]   @relation("DefaultAssignee")
+  cannedReplies      CannedReply[]   @relation("CannedReplyAuthor")
+}
+
+model AppSettings {
+  id                     String   @id @default("singleton")
+  defaultAssigneeId      String?
+  defaultAssignee        User?    @relation("DefaultAssignee", fields: [defaultAssigneeId], references: [id])
+  autoReplyBody          String?  @db.Text
+  satisfactionSurveyBody String?  @db.Text
+  trustpilotUrl          String?
+  aiEnabled              Boolean  @default(false)
+  aiProvider             String?  @default("gemini")
+  aiApiKey               String?
+  aiModel                String?  @default("gemini-2.0-flash")
+  aiSystemPrompt         String?  @db.Text
+  autoCloseEnabled       Boolean  @default(false)
+  autoCloseDays          Int      @default(7)
+  autoCloseEmailBody     String?  @db.Text
+  embedFormEnabled       Boolean  @default(false)
+  embedFormProducts      String[] @default([])
+  recaptchaEnabled       Boolean  @default(false)
+  recaptchaSiteKey       String?
+  recaptchaSecretKey     String?
+  updatedAt              DateTime @updatedAt
+}
+
+model EmailAccount {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  imapHost    String
+  imapPort    Int       @default(993)
+  imapSecure  Boolean   @default(true)
+  smtpHost    String
+  smtpPort    Int       @default(587)
+  smtpSecure  Boolean   @default(false)
+  username    String
+  password    String
+  isActive    Boolean   @default(true)
+  lastSyncAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tickets Ticket[]
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  externalId  String?  // e.g. Freshdesk Contact ID
+  name        String?
+  email       String   @unique
+  phone       String?
+  twitterId   String?
+  facebookId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@index([email])
+}
+
+model Ticket {
+  id             String       @id @default(cuid())
+  ticketNumber   Int          @unique @default(autoincrement())
+  subject        String
+  status         TicketStatus @default(OPEN)
+  priority       Priority     @default(MEDIUM)
+  fromEmail      String
+  fromName       String?
+  messageId      String?      @unique
+  tags           String[]     @default([])
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id])
+  importSource   String?      // "freshdesk-csv" | "freshdesk-api" | "helpscout"
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  assignees           TicketAssignee[]
+  messages            Message[]
+  notes               Note[]
+  attachments         Attachment[]
+  activities          Activity[]
+  satisfactionRating  SatisfactionRating?
+
+  @@index([fromEmail])
+  @@index([status])
+  @@index([emailAccountId, status])
+  @@index([updatedAt])
+  @@index([importSource])
+  @@index([contactId])
+}
+
+model TicketAssignee {
+  ticketId   String
+  userId     String
+  assignedAt DateTime @default(now())
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, userId])
+  @@index([ticketId])
+  @@index([userId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  body        String   @db.Text
+  htmlBody    String?  @db.Text
+  fromEmail   String
+  fromName    String?
+  isIncoming  Boolean  @default(true)
+  emailMsgId  String?
+  createdAt   DateTime @default(now())
+
+  attachments Attachment[]
+
+  @@index([emailMsgId])
+  @@index([ticketId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id])
+  filename  String
+  mimeType  String
+  size      Int
+  url       String
+  createdAt DateTime @default(now())
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model CannedReply {
+  id          String   @id @default(cuid())
+  title       String
+  body        String   @db.Text
+  htmlBody    String?  @db.Text
+  isGlobal    Boolean  @default(false)
+  createdById String?
+  createdBy   User?    @relation("CannedReplyAuthor", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SatisfactionRating {
+  id        String    @id @default(cuid())
+  ticketId  String    @unique
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  rating         String?   // DISSATISFIED | NEUTRAL | SATISFIED
+  feedback       String?   @db.Text
+  ratedAt        DateTime?
+  reviewClicked  Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  @@index([token])
+}

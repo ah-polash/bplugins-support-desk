@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+/* Prose styles for email HTML content */
+.prose {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: inherit;
+}
+
+.prose p { margin: 0 0 0.75rem; }
+.prose a { color: #4f46e5; text-decoration: underline; }
+.prose ul, .prose ol { padding-left: 1.25rem; margin: 0 0 0.75rem; }
+.prose li { margin-bottom: 0.25rem; }
+.prose blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: 0.75rem;
+  color: #6b7280;
+  margin: 0.5rem 0;
+}
+.prose pre {
+  background: #f3f4f6;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+}
+.prose img { max-width: 100%; height: auto; }
+.prose table { border-collapse: collapse; width: 100%; }
+.prose th, .prose td { border: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; }
+
+/* Rich text editor contenteditable styles */
+[contenteditable] { outline: none; }
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}

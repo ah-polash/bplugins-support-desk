@@ -1,0 +1,16 @@
+FROM node:20-alpine
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
+RUN npm ci --legacy-peer-deps
+RUN npx prisma generate
+
+COPY lib ./lib/
+COPY workers ./workers/
+
+ENV NODE_ENV=production
+
+CMD ["npx", "tsx", "workers/email-sync.ts"]
