@@ -1,6 +1,6 @@
 # ---- Base ----
 FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 
 # ---- Dependencies ----
 FROM base AS deps
@@ -39,16 +39,19 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy compiled seed + prisma CLI + bcryptjs for entrypoint
-COPY --from=builder /app/prisma/seed.js ./prisma/seed.js
+# Copy ALL prisma-related modules from deps (includes engines + CLI)
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
+
+# Copy compiled seed + bcryptjs for entrypoint
+COPY --from=builder /app/prisma/seed.js ./prisma/seed.js
 COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 
-# Create uploads directory
+# Fix permissions: nextjs user needs write access to prisma engines dir
+RUN chown -R nextjs:nodejs /app/node_modules/.prisma /app/node_modules/@prisma /app/node_modules/prisma
 RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
 
 USER nextjs
