@@ -4,11 +4,12 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { parseCSV } from '@/lib/csv-parser'
 import { getActiveSpamRules, checkIsSpam } from '@/lib/spam'
+import type { TicketStatus, TicketPriority } from '@prisma/client'
 
 export const maxDuration = 300
 
 // ── Status/Priority mapping for Freshdesk CSV values ──────────────────────────
-function mapStatus(raw: string): string {
+function mapStatus(raw: string): TicketStatus {
   const s = raw.toLowerCase().trim()
   if (s === 'open')    return 'OPEN'
   if (s === 'pending' || s === 'waiting on customer' || s === 'waiting on third party') return 'PENDING'
@@ -17,7 +18,7 @@ function mapStatus(raw: string): string {
   return 'OPEN'
 }
 
-function mapPriority(raw: string): string {
+function mapPriority(raw: string): TicketPriority {
   const p = raw.toLowerCase().trim()
   if (p === 'low')    return 'LOW'
   if (p === 'high')   return 'HIGH'

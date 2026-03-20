@@ -3,11 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { getActiveSpamRules, checkIsSpam } from '@/lib/spam'
+import type { TicketStatus, TicketPriority } from '@prisma/client'
 
 export const maxDuration = 300
 
 // ── Freshdesk status/priority mapping (numeric API values + string labels) ───
-function mapStatus(raw: unknown): string {
+function mapStatus(raw: unknown): TicketStatus {
   if (typeof raw === 'number') {
     if (raw === 3) return 'PENDING'
     if (raw === 4) return 'RESOLVED'
@@ -22,7 +23,7 @@ function mapStatus(raw: unknown): string {
   return 'OPEN'
 }
 
-function mapPriority(raw: unknown): string {
+function mapPriority(raw: unknown): TicketPriority {
   if (typeof raw === 'number') {
     if (raw === 1) return 'LOW'
     if (raw === 3) return 'HIGH'
