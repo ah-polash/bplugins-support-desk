@@ -11,6 +11,7 @@ import { Trash2 } from 'lucide-react'
 
 interface Ticket {
   id: string
+  ticketNumber: number
   subject: string
   fromEmail: string
   fromName?: string
