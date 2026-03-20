@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { getActiveSpamRules, checkIsSpam } from '@/lib/spam'
-import type { TicketStatus, TicketPriority } from '@prisma/client'
+import type { TicketStatus, Priority } from '@prisma/client'
 
 export const maxDuration = 300
 
@@ -23,7 +23,7 @@ function mapStatus(raw: unknown): TicketStatus {
   return 'OPEN'
 }
 
-function mapPriority(raw: unknown): TicketPriority {
+function mapPriority(raw: unknown): Priority {
   if (typeof raw === 'number') {
     if (raw === 1) return 'LOW'
     if (raw === 3) return 'HIGH'

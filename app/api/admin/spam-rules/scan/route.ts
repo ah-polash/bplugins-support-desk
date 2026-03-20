@@ -38,7 +38,7 @@ export async function POST() {
         let moved = 0
 
         while (true) {
-          const tickets = await prisma.ticket.findMany({
+          const queryArgs: { where: object; select: object; orderBy: object; take: number; skip?: number; cursor?: object } = {
             where: { status: { not: 'SPAM' } },
             select: {
               id: true,
@@ -53,8 +53,12 @@ export async function POST() {
             },
             orderBy: { id: 'asc' },
             take: BATCH,
-            ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-          })
+          }
+          if (cursor) {
+            queryArgs.skip = 1
+            queryArgs.cursor = { id: cursor }
+          }
+          const tickets = await (prisma.ticket.findMany(queryArgs as never) as unknown as Promise<Array<{ id: string; subject: string; fromEmail: string; fromName: string | null; messages: Array<{ body: string }> }>>)
 
           if (tickets.length === 0) break
 

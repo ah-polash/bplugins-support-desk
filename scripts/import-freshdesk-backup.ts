@@ -21,6 +21,7 @@ import * as path from 'path'
 import * as readline from 'readline'
 import * as dotenv from 'dotenv'
 import { PrismaClient } from '@prisma/client'
+import type { TicketStatus, Priority } from '@prisma/client'
 
 dotenv.config({ path: path.join(__dirname, '../.env') })
 
@@ -30,14 +31,14 @@ const EMAIL_ACCOUNT_ID  = process.env.EMAIL_ACCOUNT_ID || ''
 const ASSIGNEE_ID       = process.env.ASSIGNEE_ID || ''
 const OVERRIDE_EXISTING = process.env.OVERRIDE_EXISTING === 'true'
 
-function mapStatus(s: number): string {
+function mapStatus(s: number): TicketStatus {
   if (s === 3) return 'PENDING'
   if (s === 4) return 'RESOLVED'
   if (s === 5) return 'CLOSED'
   return 'OPEN'
 }
 
-function mapPriority(p: number): string {
+function mapPriority(p: number): Priority {
   if (p === 1) return 'LOW'
   if (p === 3) return 'HIGH'
   if (p === 4) return 'URGENT'

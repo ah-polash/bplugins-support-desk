@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { parseCSV } from '@/lib/csv-parser'
 import { getActiveSpamRules, checkIsSpam } from '@/lib/spam'
-import type { TicketStatus, TicketPriority } from '@prisma/client'
+import type { TicketStatus, Priority } from '@prisma/client'
 
 export const maxDuration = 300
 
@@ -18,7 +18,7 @@ function mapStatus(raw: string): TicketStatus {
   return 'OPEN'
 }
 
-function mapPriority(raw: string): TicketPriority {
+function mapPriority(raw: string): Priority {
   const p = raw.toLowerCase().trim()
   if (p === 'low')    return 'LOW'
   if (p === 'high')   return 'HIGH'
