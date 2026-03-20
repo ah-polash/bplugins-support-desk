@@ -39,6 +39,15 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
+# Copy seed + entrypoint
+COPY --from=builder /app/prisma/seed.ts ./prisma/seed.ts
+COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
+COPY --from=deps /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
+COPY --from=deps /app/node_modules/get-tsconfig ./node_modules/get-tsconfig
+COPY --from=deps /app/node_modules/resolve-pkg-maps ./node_modules/resolve-pkg-maps
+
 # Create uploads directory
 RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
 
@@ -48,4 +57,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["sh", "docker-entrypoint.sh"]
