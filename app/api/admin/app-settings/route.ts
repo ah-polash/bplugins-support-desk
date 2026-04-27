@@ -27,6 +27,9 @@ const DEFAULTS = {
   recaptchaEnabled: false,
   recaptchaSiteKey: null,
   recaptchaSecretKey: null,
+  assignmentEmailEnabled: false,
+  assignmentEmailSubject: null,
+  assignmentEmailBody: null,
 }
 
 export async function GET() {
@@ -82,6 +85,9 @@ export async function PATCH(req: NextRequest) {
       recaptchaEnabled,
       recaptchaSiteKey,
       recaptchaSecretKey,
+      assignmentEmailEnabled,
+      assignmentEmailSubject,
+      assignmentEmailBody,
     } = body
 
     if (defaultAssigneeId) {
@@ -117,6 +123,9 @@ export async function PATCH(req: NextRequest) {
       recaptchaSecretKey: recaptchaSecretKey && !recaptchaSecretKey.includes('•')
         ? encrypt(recaptchaSecretKey.trim())
         : (current?.recaptchaSecretKey ?? null),
+      assignmentEmailEnabled: assignmentEmailEnabled ?? false,
+      assignmentEmailSubject: assignmentEmailSubject?.trim() || null,
+      assignmentEmailBody: assignmentEmailBody ?? null,
     }
 
     const settings = await prisma.appSettings.upsert({

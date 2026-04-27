@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, isAdminRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { sendAssignmentNotifications } from '@/lib/assignment-notification'
 
 // POST /api/tickets/[id]/assign
 // Body: { agentIds: string[] }  — empty array = unassign all
@@ -56,6 +57,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         metadata: { from: currentIds, to: agentIds },
       },
     })
+
+    const newlyAssigned = agentIds.filter((id: string) => !currentIds.includes(id))
+    if (newlyAssigned.length) {
+      sendAssignmentNotifications(ticketId, newlyAssigned).catch(err =>
+        console.error('Assignment notification error:', err)
+      )
+    }
 
     const updated = await prisma.ticket.findUnique({
       where: { id: ticketId },

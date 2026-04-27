@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, isAdminRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { sendAssignmentNotifications } from '@/lib/assignment-notification'
 
 const MAX_BULK_IDS = 100
 
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
     } else if (action === 'assign') {
       // value = agentId (single) for bulk assign
       for (const ticketId of safeIds) {
+        const previous = value
+          ? await prisma.ticketAssignee.findUnique({ where: { ticketId_userId: { ticketId, userId: value } } }).catch(() => null)
+          : null
         await prisma.ticketAssignee.deleteMany({ where: { ticketId } })
         if (value) {
           await prisma.ticketAssignee.create({ data: { ticketId, userId: value } })
@@ -46,6 +50,11 @@ export async function POST(req: NextRequest) {
         await prisma.activity.create({
           data: { ticketId, userId: session.user.id, action: 'assigned', metadata: { to: value, bulk: true } },
         })
+        if (value && !previous) {
+          sendAssignmentNotifications(ticketId, [value]).catch(err =>
+            console.error('Assignment notification error:', err)
+          )
+        }
       }
     } else if (action === 'priority') {
       const allowed = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']

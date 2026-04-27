@@ -76,6 +76,9 @@ model AppSettings {
   recaptchaEnabled       Boolean  @default(false)
   recaptchaSiteKey       String?
   recaptchaSecretKey     String?
+  assignmentEmailEnabled Boolean  @default(false)
+  assignmentEmailSubject String?
+  assignmentEmailBody    String?  @db.Text
   updatedAt              DateTime @updatedAt
 }
 

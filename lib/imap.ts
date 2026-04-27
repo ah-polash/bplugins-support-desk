@@ -5,6 +5,7 @@ import { saveBuffer } from './storage'
 import { sendSystemEmail } from './smtp'
 import { getActiveSpamRules, checkIsSpam } from './spam'
 import { safeDecrypt } from './crypto'
+import { sendAssignmentNotifications } from './assignment-notification'
 
 export async function syncEmailAccount(accountId: string) {
   const account = await prisma.emailAccount.findUnique({ where: { id: accountId } })
@@ -83,6 +84,9 @@ async function autoAssignTicket(ticketId: string): Promise<string | null> {
       await prisma.activity.create({
         data: { ticketId, userId: user.id, action: 'assigned', metadata: { auto: true, source: 'default_assignee' } },
       })
+      sendAssignmentNotifications(ticketId, [user.id]).catch(err =>
+        console.error('Assignment notification error:', err)
+      )
       return user.id
     }
   }
@@ -111,6 +115,9 @@ async function autoAssignTicket(ticketId: string): Promise<string | null> {
   await prisma.activity.create({
     data: { ticketId, userId: agent.id, action: 'assigned', metadata: { auto: true } },
   })
+  sendAssignmentNotifications(ticketId, [agent.id]).catch(err =>
+    console.error('Assignment notification error:', err)
+  )
   return agent.id
 }
 

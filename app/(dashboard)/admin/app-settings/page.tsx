@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import RichTextEditor from '@/components/tickets/RichTextEditor'
 import { AI_PROVIDERS, AI_MODELS, DEFAULT_SYSTEM_PROMPT, type AiProvider } from '@/lib/ai'
 import { SPAM_RULE_TYPES, type SpamRuleType } from '@/lib/spam'
-import { Sparkles, Eye, EyeOff, CheckCircle2, Shield, Plus, Trash2, ToggleLeft, ToggleRight, AlertTriangle, Clock, Code2, X, Copy, Check } from 'lucide-react'
+import { Sparkles, Eye, EyeOff, CheckCircle2, Shield, Plus, Trash2, ToggleLeft, ToggleRight, AlertTriangle, Clock, Code2, X, Copy, Check, UserPlus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface User { id: string; name: string; email: string }
@@ -32,6 +32,9 @@ interface Settings {
   recaptchaSiteKey: string | null
   recaptchaSecretKey: string | null
   recaptchaSecretKeySet: boolean
+  assignmentEmailEnabled: boolean
+  assignmentEmailSubject: string | null
+  assignmentEmailBody: string | null
 }
 
 const defaultSettings: Settings = {
@@ -54,7 +57,22 @@ const defaultSettings: Settings = {
   recaptchaSiteKey: null,
   recaptchaSecretKey: null,
   recaptchaSecretKeySet: false,
+  assignmentEmailEnabled: false,
+  assignmentEmailSubject: null,
+  assignmentEmailBody: null,
 }
+
+const ASSIGNMENT_PLACEHOLDERS: { token: string; label: string }[] = [
+  { token: '{{agent_name}}',     label: 'Agent name' },
+  { token: '{{agent_email}}',    label: 'Agent email' },
+  { token: '{{ticket_number}}',  label: 'Ticket #' },
+  { token: '{{ticket_subject}}', label: 'Ticket subject' },
+  { token: '{{ticket_url}}',     label: 'Ticket URL' },
+  { token: '{{ticket_priority}}',label: 'Ticket priority' },
+  { token: '{{ticket_status}}',  label: 'Ticket status' },
+  { token: '{{customer_name}}',  label: 'Customer name' },
+  { token: '{{customer_email}}', label: 'Customer email' },
+]
 
 const PROVIDER_LABELS: Record<AiProvider, string> = {
   gemini:     'Powered by Google Gemini',
@@ -210,6 +228,9 @@ export default function AppSettingsPage() {
           recaptchaSiteKey: s.recaptchaSiteKey ?? '',
           recaptchaSecretKey: s.recaptchaSecretKey ?? null,
           recaptchaSecretKeySet: s.recaptchaSecretKeySet ?? false,
+          assignmentEmailEnabled: s.assignmentEmailEnabled ?? false,
+          assignmentEmailSubject: s.assignmentEmailSubject ?? '',
+          assignmentEmailBody: s.assignmentEmailBody ?? '',
         })
       }
       if (usersRes.ok) {
@@ -427,6 +448,85 @@ export default function AppSettingsPage() {
                     placeholder="e.g. Your ticket has been automatically closed due to inactivity. If you still need help, simply reply to reopen it."
                     minHeight={120}
                   />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Agent Assignment Email */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-blue-500" />
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Agent Assignment Email</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => set('assignmentEmailEnabled', !settings.assignmentEmailEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  settings.assignmentEmailEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  settings.assignmentEmailEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {!settings.assignmentEmailEnabled && (
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Enable to email an agent every time a ticket is assigned to them — manual assign, bulk assign, or auto-assign.
+              </p>
+            )}
+
+            {settings.assignmentEmailEnabled && (
+              <div className="space-y-5">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.assignmentEmailSubject ?? ''}
+                    onChange={(e) => set('assignmentEmailSubject', e.target.value)}
+                    placeholder="New ticket assigned to you: #{{ticket_number}} — {{ticket_subject}}"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Leave blank to use the default subject.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email Body
+                  </label>
+                  <p className="mb-2 text-xs text-gray-400">
+                    Sent to the agent when a ticket is assigned. Leave blank to use the default template.
+                  </p>
+                  <RichTextEditor
+                    value={settings.assignmentEmailBody ?? ''}
+                    onChange={(val) => set('assignmentEmailBody', val)}
+                    placeholder="Hi {{agent_name}}, ticket #{{ticket_number}} has been assigned to you..."
+                    minHeight={180}
+                  />
+                </div>
+
+                <div className="rounded-md border border-blue-100 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-900/10 px-3 py-3">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
+                    Available placeholders
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ASSIGNMENT_PLACEHOLDERS.map(p => (
+                      <span
+                        key={p.token}
+                        title={p.label}
+                        className="rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-800 px-2 py-0.5 text-[11px] font-mono text-blue-700 dark:text-blue-300"
+                      >
+                        {p.token}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getActiveSpamRules, checkIsSpam } from '@/lib/spam'
 import { safeDecrypt } from '@/lib/crypto'
+import { sendAssignmentNotifications } from '@/lib/assignment-notification'
 
 const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute
 const RATE_LIMIT_MAX = 5
@@ -166,9 +167,14 @@ export async function POST(req: NextRequest) {
 
     // Assign default assignee
     if (settings.defaultAssigneeId) {
-      await prisma.ticketAssignee.create({
+      const created = await prisma.ticketAssignee.create({
         data: { ticketId: ticket.id, userId: settings.defaultAssigneeId },
-      }).catch(() => { /* ignore */ })
+      }).catch(() => null)
+      if (created) {
+        sendAssignmentNotifications(ticket.id, [settings.defaultAssigneeId]).catch(err =>
+          console.error('Assignment notification error:', err)
+        )
+      }
     }
 
     await prisma.activity.create({
