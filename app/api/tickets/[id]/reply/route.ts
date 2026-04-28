@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Fetch all messages to get first (for References) and last (for In-Reply-To)
         messages: {
           orderBy: { createdAt: 'asc' },
-          select: { emailMsgId: true },
+          select: { emailMsgId: true, isIncoming: true, replyTo: true },
         },
       },
     })
@@ -87,14 +87,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .filter((id, i, arr) => id && arr.indexOf(id) === i)
       .join(' ') || undefined
 
+    // Honor Reply-To from the most recent incoming message (if present),
+    // otherwise fall back to the ticket's From address.
+    const lastIncomingReplyTo = [...msgs].reverse().find((m) => m.isIncoming && m.replyTo)?.replyTo
+    const replyToAddress = lastIncomingReplyTo || ticket.fromEmail
+
+    // Create message row first so we have an id for the tracking pixel
+    const message = await prisma.message.create({
+      data: {
+        ticketId: ticket.id,
+        body,
+        htmlBody: htmlBody || undefined,
+        fromEmail: ticket.emailAccount.email,
+        fromName: sender?.name || 'bPlugins Support',
+        isIncoming: false,
+      },
+    })
+
+    // Embed read-receipt tracking pixel at end of HTML
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const trackingPixel = `<img src="${baseUrl}/api/track/open/${message.id}/pixel.gif" width="1" height="1" alt="" style="display:none;border:0;outline:0;" />`
+    const finalHtml = (htmlBody || `<p>${body.replace(/\n/g, '<br>')}</p>`) + signatureHtml + trackingPixel
+
     // Send email via SMTP
     const outMsgId = await sendReply({
       accountId: ticket.emailAccountId,
-      to: ticket.fromEmail,
-      toName: ticket.fromName || undefined,
+      to: replyToAddress,
+      toName: replyToAddress === ticket.fromEmail ? ticket.fromName || undefined : undefined,
       subject: replySubject,
       text: body,
-      html: (htmlBody || `<p>${body.replace(/\n/g, '<br>')}</p>`) + signatureHtml,
+      html: finalHtml,
       inReplyTo: lastMsgId || undefined,
       references,
       attachments: savedFiles.map((f) => ({
@@ -104,17 +126,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })),
     })
 
-    // Save message to DB
-    const message = await prisma.message.create({
-      data: {
-        ticketId: ticket.id,
-        body,
-        htmlBody: htmlBody || undefined,
-        fromEmail: ticket.emailAccount.email,
-        fromName: sender?.name || 'bPlugins Support',
-        isIncoming: false,
-        emailMsgId: outMsgId,
-      },
+    // Persist the SMTP message id (htmlBody stays clean — pixel is only in the sent email)
+    await prisma.message.update({
+      where: { id: message.id },
+      data: { emailMsgId: outMsgId },
     })
 
     // Save attachments to DB
@@ -142,7 +157,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ticketId: ticket.id,
         userId: session.user.id,
         action: 'replied',
-        metadata: { to: ticket.fromEmail },
+        metadata: {
+          to: replyToAddress,
+          ...(replyToAddress !== ticket.fromEmail && { honoredReplyTo: true, originalFrom: ticket.fromEmail }),
+        },
       },
     })
 

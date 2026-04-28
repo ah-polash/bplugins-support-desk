@@ -1,6 +1,6 @@
 'use client'
 import { formatDate, getInitials, cn } from '@/lib/utils'
-import { Paperclip } from 'lucide-react'
+import { Paperclip, Eye, EyeOff } from 'lucide-react'
 
 interface Attachment {
   id: string
@@ -18,6 +18,9 @@ interface Message {
   fromName?: string
   isIncoming: boolean
   createdAt: string
+  firstOpenedAt?: string | null
+  lastOpenedAt?: string | null
+  openCount?: number
   attachments?: Attachment[]
 }
 
@@ -139,6 +142,27 @@ export default function MessageThread({ messages }: { messages: Message[] }) {
                   </a>
                 ))}
               </div>
+            )}
+
+            {!msg.isIncoming && (
+              msg.firstOpenedAt ? (
+                <div
+                  className="flex items-center gap-1 text-xs text-gray-500"
+                  title={
+                    msg.lastOpenedAt && msg.lastOpenedAt !== msg.firstOpenedAt
+                      ? `Last viewed ${formatDate(msg.lastOpenedAt)} • ${msg.openCount ?? 1} opens`
+                      : undefined
+                  }
+                >
+                  <Eye className="h-3 w-3" />
+                  <span>Customer viewed on {formatDate(msg.firstOpenedAt)}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <EyeOff className="h-3 w-3" />
+                  <span>Not viewed yet</span>
+                </div>
+              )
             )}
           </div>
         </div>

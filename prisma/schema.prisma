@@ -165,16 +165,20 @@ model TicketAssignee {
 }
 
 model Message {
-  id          String   @id @default(cuid())
-  ticketId    String
-  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  body        String   @db.Text
-  htmlBody    String?  @db.Text
-  fromEmail   String
-  fromName    String?
-  isIncoming  Boolean  @default(true)
-  emailMsgId  String?
-  createdAt   DateTime @default(now())
+  id            String    @id @default(cuid())
+  ticketId      String
+  ticket        Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  body          String    @db.Text
+  htmlBody      String?   @db.Text
+  fromEmail     String
+  fromName      String?
+  replyTo       String?
+  isIncoming    Boolean   @default(true)
+  emailMsgId    String?
+  firstOpenedAt DateTime?
+  lastOpenedAt  DateTime?
+  openCount     Int       @default(0)
+  createdAt     DateTime  @default(now())
 
   attachments Attachment[]
 

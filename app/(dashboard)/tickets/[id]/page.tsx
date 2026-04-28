@@ -38,7 +38,9 @@ interface Ticket {
   messages: Array<{
     id: string; body: string; htmlBody?: string
     fromEmail: string; fromName?: string; isIncoming: boolean
-    createdAt: string; attachments: Array<{ id: string; filename: string; url: string; mimeType: string; size: number }>
+    createdAt: string
+    firstOpenedAt?: string | null; lastOpenedAt?: string | null; openCount?: number
+    attachments: Array<{ id: string; filename: string; url: string; mimeType: string; size: number }>
   }>
   notes: Array<{ id: string; body: string; createdAt: string; user: { id: string; name: string } }>
   activities: Array<{ id: string; action: string; metadata?: Record<string, unknown>; createdAt: string; user?: { id: string; name: string } | null }>

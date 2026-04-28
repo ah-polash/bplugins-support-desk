@@ -160,6 +160,16 @@ async function processEmail(parsed: ParsedMail, accountId: string, accountEmail:
   const htmlBody = parsed.html || ''
   const textBody = parsed.text || ''
 
+  // Capture Reply-To header so future agent replies go to the right address
+  const replyToAddrs = parsed.replyTo
+    ? Array.isArray(parsed.replyTo) ? parsed.replyTo : [parsed.replyTo]
+    : []
+  const replyToEmail = replyToAddrs
+    .flatMap((rt) => rt.value || [])
+    .map((v) => v.address)
+    .find((a): a is string => !!a && a.toLowerCase() !== fromEmail.toLowerCase())
+    ?.toLowerCase() || null
+
   const isNewTicket = !ticket
 
   if (!ticket) {
@@ -231,6 +241,7 @@ async function processEmail(parsed: ParsedMail, accountId: string, accountEmail:
       htmlBody,
       fromEmail,
       fromName,
+      replyTo: replyToEmail || undefined,
       isIncoming: true,
       emailMsgId: messageId || undefined,
     },
