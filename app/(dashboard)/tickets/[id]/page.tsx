@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Input'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { formatDate, getInitials, timeAgo } from '@/lib/utils'
-import { ArrowLeft, UserPlus, CheckCircle, RotateCcw, Trash2, Tag, X as XIcon } from 'lucide-react'
+import { ArrowLeft, UserPlus, CheckCircle, RotateCcw, Trash2, Tag, X as XIcon, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -38,6 +38,7 @@ interface Ticket {
   messages: Array<{
     id: string; body: string; htmlBody?: string
     fromEmail: string; fromName?: string; isIncoming: boolean
+    replyTo?: string | null
     createdAt: string
     firstOpenedAt?: string | null; lastOpenedAt?: string | null; openCount?: number
     attachments: Array<{ id: string; filename: string; url: string; mimeType: string; size: number }>
@@ -153,6 +154,21 @@ export default function TicketDetailPage() {
   const canReopen = ticket.status === 'RESOLVED' || ticket.status === 'CLOSED'
   const currentAgentIds = ticket.assignees.map(a => a.user.id)
 
+  // Most recent incoming Reply-To header (only show if it differs from From)
+  const replyToEmail = (() => {
+    const rt = [...ticket.messages].reverse().find(m => m.isIncoming && m.replyTo)?.replyTo
+    return rt && rt.toLowerCase() !== ticket.fromEmail.toLowerCase() ? rt : null
+  })()
+
+  const copyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email)
+      toast.success(`Copied ${email}`)
+    } catch {
+      toast.error('Could not copy to clipboard')
+    }
+  }
+
   return (
     <div className="flex h-full">
       {/* Main Content */}
@@ -164,10 +180,39 @@ export default function TicketDetailPage() {
           </Link>
           <div className="flex-1 min-w-0">
             <h1 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">{ticket.subject}</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              From: {ticket.fromName ? `${ticket.fromName} <${ticket.fromEmail}>` : ticket.fromEmail}
-              {' · '}
-              {timeAgo(ticket.createdAt)}
+            <p className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+              <span>From:</span>
+              {ticket.fromName && <span>{ticket.fromName}</span>}
+              <span>&lt;</span>
+              <button
+                type="button"
+                onClick={() => copyEmail(ticket.fromEmail)}
+                className="group inline-flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
+                title="Click to copy email"
+              >
+                {ticket.fromEmail}
+                <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+              </button>
+              <span>&gt;</span>
+              {replyToEmail && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span>Reply-To:</span>
+                  <span>&lt;</span>
+                  <button
+                    type="button"
+                    onClick={() => copyEmail(replyToEmail)}
+                    className="group inline-flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
+                    title="Click to copy email"
+                  >
+                    {replyToEmail}
+                    <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                  </button>
+                  <span>&gt;</span>
+                </>
+              )}
+              <span className="text-gray-400">·</span>
+              <span>{timeAgo(ticket.createdAt)}</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
