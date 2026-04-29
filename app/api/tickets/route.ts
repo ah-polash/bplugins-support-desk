@@ -269,6 +269,8 @@ export async function POST(req: NextRequest) {
     })
 
     // Optionally send the initial email to the customer
+    let emailSent = false
+    let emailError: string | null = null
     if (willSendEmail) {
       try {
         const signatureHtml = sender?.signature
@@ -286,8 +288,10 @@ export async function POST(req: NextRequest) {
           html: finalHtml,
         })
         await prisma.message.update({ where: { id: message.id }, data: { emailMsgId: outMsgId } })
+        emailSent = true
       } catch (err) {
         console.error('Initial email send failed:', err)
+        emailError = err instanceof Error ? err.message : 'Failed to send email'
       }
     }
 
@@ -314,11 +318,11 @@ export async function POST(req: NextRequest) {
         ticketId: ticket.id,
         userId: session.user.id,
         action: 'ticket_created',
-        metadata: { source: 'admin-created', emailSent: willSendEmail },
+        metadata: { source: 'admin-created', emailRequested: willSendEmail, emailSent, emailError },
       },
     })
 
-    return NextResponse.json({ ticket, success: true }, { status: 201 })
+    return NextResponse.json({ ticket, success: true, emailSent, emailError }, { status: 201 })
   } catch (err) {
     console.error('Tickets POST error:', err)
     return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })

@@ -32,7 +32,7 @@ export default function CreateTicketModal({ open, onClose, onCreated }: Props) {
   const [tags, setTags] = useState('')
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [htmlBody, setHtmlBody] = useState('')
-  const [sendEmail, setSendEmail] = useState(false)
+  const [sendEmail, setSendEmail] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function CreateTicketModal({ open, onClose, onCreated }: Props) {
     setTags('')
     setAssigneeIds([])
     setHtmlBody('')
-    setSendEmail(false)
+    setSendEmail(true)
 
     fetch('/api/email-accounts')
       .then(r => r.ok ? r.json() : [])
@@ -103,7 +103,13 @@ export default function CreateTicketModal({ open, onClose, onCreated }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to create ticket')
 
-      toast.success(`Ticket #${data.ticket.ticketNumber} created`)
+      if (sendEmail && !data.emailSent) {
+        toast.error(`Ticket #${data.ticket.ticketNumber} created, but email delivery failed${data.emailError ? `: ${data.emailError}` : ''}`)
+      } else if (sendEmail) {
+        toast.success(`Ticket #${data.ticket.ticketNumber} created and email sent`)
+      } else {
+        toast.success(`Ticket #${data.ticket.ticketNumber} created`)
+      }
       onCreated?.()
       onClose()
       router.push(`/tickets/${data.ticket.ticketNumber}`)
