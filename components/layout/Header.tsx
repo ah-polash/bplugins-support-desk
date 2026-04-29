@@ -1,19 +1,23 @@
 'use client'
-import { Search, RefreshCw } from 'lucide-react'
+import { Search, RefreshCw, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
+import CreateTicketModal from '@/components/tickets/CreateTicketModal'
 
 interface HeaderProps {
   title: string
   onSearch?: (q: string) => void
   showSync?: boolean
   onSynced?: () => void
+  onCreated?: () => void
 }
 
-export default function Header({ title, onSearch, showSync, onSynced }: HeaderProps) {
+export default function Header({ title, onSearch, showSync, onSynced, onCreated }: HeaderProps) {
   const { data: session } = useSession()
   const [syncing, setSyncing] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const isAdmin = session?.user?.role === 'SUPPORT_ADMIN' || session?.user?.role === 'SUPER_ADMIN'
 
   const handleSync = async () => {
     setSyncing(true)
@@ -62,17 +66,34 @@ export default function Header({ title, onSearch, showSync, onSynced }: HeaderPr
             />
           </div>
         )}
-        {showSync && (session?.user?.role === 'SUPPORT_ADMIN' || session?.user?.role === 'SUPER_ADMIN') && (
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Syncing...' : 'Sync Now'}
-          </button>
+        {showSync && isAdmin && (
+          <>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4" />
+              Create new Ticket
+            </button>
+          </>
         )}
       </div>
+
+      {isAdmin && (
+        <CreateTicketModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={onCreated}
+        />
+      )}
     </header>
   )
 }

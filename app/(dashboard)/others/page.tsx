@@ -119,7 +119,7 @@ export default function OthersTicketsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header title={`Others' Tickets (${total})`} onSearch={setSearch} showSync onSynced={() => fetchTickets()} />
+      <Header title={`Others' Tickets (${total})`} onSearch={setSearch} showSync onSynced={() => fetchTickets()} onCreated={() => fetchTickets()} />
 
       {/* Filters */}
       <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-3">

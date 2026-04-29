@@ -55,7 +55,7 @@ export default function InboxPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header title={title} showSync onSynced={() => fetchTickets()} />
+      <Header title={title} showSync onSynced={() => fetchTickets()} onCreated={() => fetchTickets()} />
       <div className="flex-1 overflow-y-auto">
         {!loading && tickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-32 text-gray-400">

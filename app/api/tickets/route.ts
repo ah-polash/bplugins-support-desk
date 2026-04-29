@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, isAdminRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { sendSystemEmail } from '@/lib/smtp'
+import { sendAssignmentNotifications } from '@/lib/assignment-notification'
+
+const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
+const VALID_STATUSES = ['OPEN', 'PENDING', 'RESOLVED', 'CLOSED'] as const
+type Priority = typeof VALID_PRIORITIES[number]
+type TicketStatus = typeof VALID_STATUSES[number]
 
 export async function GET(req: NextRequest) {
   try {
@@ -154,5 +161,166 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error('Tickets GET error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!isAdminRole(session.user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const {
+      subject: rawSubject,
+      fromEmail: rawFromEmail,
+      fromName: rawFromName,
+      emailAccountId,
+      priority,
+      status,
+      tags,
+      assigneeIds,
+      body: rawBody,
+      htmlBody: rawHtmlBody,
+      sendEmail,
+    } = body || {}
+
+    if (!rawSubject || typeof rawSubject !== 'string' || !rawSubject.trim()) {
+      return NextResponse.json({ error: 'Subject is required' }, { status: 400 })
+    }
+    if (!rawFromEmail || typeof rawFromEmail !== 'string' || !rawFromEmail.includes('@')) {
+      return NextResponse.json({ error: 'Valid customer email is required' }, { status: 400 })
+    }
+    if (!rawBody || typeof rawBody !== 'string' || !rawBody.trim()) {
+      return NextResponse.json({ error: 'Message body is required' }, { status: 400 })
+    }
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
+      return NextResponse.json({ error: 'Invalid priority' }, { status: 400 })
+    }
+    if (status && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+
+    const trimmedSubject = rawSubject.trim().slice(0, 500)
+    const trimmedFromEmail = rawFromEmail.trim().toLowerCase().slice(0, 320)
+    const trimmedFromName = typeof rawFromName === 'string' ? rawFromName.trim().slice(0, 200) : ''
+    const trimmedBody = rawBody.trim().slice(0, 50000)
+    const trimmedHtml = typeof rawHtmlBody === 'string' && rawHtmlBody.trim() ? rawHtmlBody : null
+    const finalPriority: Priority = (priority as Priority) || 'MEDIUM'
+    const finalStatus: TicketStatus = (status as TicketStatus) || 'OPEN'
+    const tagList: string[] = Array.isArray(tags)
+      ? tags.map(t => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 30)
+      : []
+    const assigneeList: string[] = Array.isArray(assigneeIds)
+      ? assigneeIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+      : []
+
+    // Resolve email account
+    const account = emailAccountId
+      ? await prisma.emailAccount.findUnique({ where: { id: emailAccountId } })
+      : await prisma.emailAccount.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } })
+    if (!account) {
+      return NextResponse.json({ error: 'No email account available' }, { status: 400 })
+    }
+
+    // Upsert contact
+    let contactId: string | null = null
+    try {
+      const contact = await prisma.contact.upsert({
+        where: { email: trimmedFromEmail },
+        update: trimmedFromName ? { name: trimmedFromName } : {},
+        create: { email: trimmedFromEmail, name: trimmedFromName || null },
+      })
+      contactId = contact.id
+    } catch { /* ignore */ }
+
+    const willSendEmail = !!sendEmail
+    const ticket = await prisma.ticket.create({
+      data: {
+        subject: trimmedSubject,
+        status: willSendEmail && finalStatus === 'OPEN' ? 'PENDING' : finalStatus,
+        priority: finalPriority,
+        fromEmail: trimmedFromEmail,
+        fromName: trimmedFromName || null,
+        emailAccountId: account.id,
+        importSource: 'admin-created',
+        contactId,
+        tags: tagList,
+      },
+    })
+
+    // Get sender info for outgoing message attribution
+    const sender = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, signature: true },
+    })
+
+    const message = await prisma.message.create({
+      data: {
+        ticketId: ticket.id,
+        body: trimmedBody,
+        htmlBody: trimmedHtml || `<p>${trimmedBody.replace(/\n/g, '<br>')}</p>`,
+        fromEmail: willSendEmail ? account.email : trimmedFromEmail,
+        fromName: willSendEmail ? (sender?.name || 'Support') : (trimmedFromName || null),
+        isIncoming: !willSendEmail,
+      },
+    })
+
+    // Optionally send the initial email to the customer
+    if (willSendEmail) {
+      try {
+        const signatureHtml = sender?.signature
+          ? `<div class="signature" style="margin-top:16px;color:#6b7280;font-size:13px;">${sender.signature}</div>`
+          : ''
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+        const trackingPixel = `<img src="${baseUrl}/api/track/open/${message.id}/pixel.gif" width="1" height="1" alt="" style="display:none;border:0;outline:0;" />`
+        const finalHtml = (trimmedHtml || `<p>${trimmedBody.replace(/\n/g, '<br>')}</p>`) + signatureHtml + trackingPixel
+        const outMsgId = await sendSystemEmail({
+          accountId: account.id,
+          to: trimmedFromEmail,
+          toName: trimmedFromName || undefined,
+          subject: trimmedSubject,
+          text: trimmedBody,
+          html: finalHtml,
+        })
+        await prisma.message.update({ where: { id: message.id }, data: { emailMsgId: outMsgId } })
+      } catch (err) {
+        console.error('Initial email send failed:', err)
+      }
+    }
+
+    // Assign agents
+    if (assigneeList.length) {
+      const validAgents = await prisma.user.findMany({
+        where: { id: { in: assigneeList }, isActive: true },
+        select: { id: true },
+      })
+      const validIds = validAgents.map(a => a.id)
+      if (validIds.length) {
+        await prisma.ticketAssignee.createMany({
+          data: validIds.map(userId => ({ ticketId: ticket.id, userId })),
+          skipDuplicates: true,
+        })
+        sendAssignmentNotifications(ticket.id, validIds).catch(err =>
+          console.error('Assignment notification error:', err)
+        )
+      }
+    }
+
+    await prisma.activity.create({
+      data: {
+        ticketId: ticket.id,
+        userId: session.user.id,
+        action: 'ticket_created',
+        metadata: { source: 'admin-created', emailSent: willSendEmail },
+      },
+    })
+
+    return NextResponse.json({ ticket, success: true }, { status: 201 })
+  } catch (err) {
+    console.error('Tickets POST error:', err)
+    return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })
   }
 }
