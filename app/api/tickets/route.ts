@@ -30,6 +30,10 @@ export async function GET(req: NextRequest) {
     const tag = searchParams.get('tag')
     const minReplies = searchParams.get('minReplies')
     const maxReplies = searchParams.get('maxReplies')
+    const sortParam = searchParams.get('sort')
+    const orderBy = sortParam === 'updated'
+      ? { updatedAt: 'desc' as const }
+      : { createdAt: 'desc' as const }
     const isAdmin = isAdminRole(session.user.role)
 
     const where: Record<string, unknown> = {}
@@ -150,7 +154,7 @@ export async function GET(req: NextRequest) {
             select: { body: true, createdAt: true, isIncoming: true },
           },
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

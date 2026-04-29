@@ -56,6 +56,10 @@ export default function AllTicketsPage() {
     if (typeof window === 'undefined') return 25
     return parseInt(localStorage.getItem('tickets:limit') ?? '25', 10) || 25
   })
+  const [sort, setSort] = useState<'created' | 'updated'>(() => {
+    if (typeof window === 'undefined') return 'created'
+    return localStorage.getItem('tickets:sort') === 'updated' ? 'updated' : 'created'
+  })
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const toggleHideClosed = () => {
@@ -100,6 +104,7 @@ export default function AllTicketsPage() {
       if (hideClosed) params.set('excludeStatus', 'RESOLVED')
       // Agents always see only their tickets; admins can opt-in with the checkbox
       if (!isAdmin || onlyMine) params.set('myTickets', 'true')
+      params.set('sort', sort)
       const res = await fetch(`/api/tickets?${params}`)
       const data = await res.json()
       setTickets(data.tickets || [])
@@ -109,7 +114,7 @@ export default function AllTicketsPage() {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [search, status, priority, tag, replyFilter, page, limit, isAdmin, hideClosed, onlyMine])
+  }, [search, status, priority, tag, replyFilter, page, limit, isAdmin, hideClosed, onlyMine, sort])
 
   useEffect(() => {
     const t = setTimeout(() => fetchTickets(), 300)
@@ -195,6 +200,19 @@ export default function AllTicketsPage() {
             <option key={i + 1} value={`${i + 1}-${i + 1}`}>{i + 1} {i + 1 === 1 ? 'reply' : 'replies'}</option>
           ))}
           <option value="26+">26+ replies</option>
+        </Select>
+        <Select
+          value={sort}
+          onChange={(e) => {
+            const next = e.target.value === 'updated' ? 'updated' : 'created'
+            setSort(next)
+            localStorage.setItem('tickets:sort', next)
+            setPage(1)
+          }}
+          className="w-44 py-1.5 text-xs"
+        >
+          <option value="created">Sort: Newest first</option>
+          <option value="updated">Sort: Recently updated</option>
         </Select>
         {/* Tag filter */}
         <div className="flex items-center gap-1">
