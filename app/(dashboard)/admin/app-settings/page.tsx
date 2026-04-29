@@ -15,6 +15,7 @@ interface User { id: string; name: string; email: string }
 interface Settings {
   defaultAssigneeId: string | null
   autoReplyBody: string | null
+  satisfactionSurveyEnabled: boolean
   satisfactionSurveyBody: string | null
   trustpilotUrl: string | null
   aiEnabled: boolean
@@ -40,6 +41,7 @@ interface Settings {
 const defaultSettings: Settings = {
   defaultAssigneeId: null,
   autoReplyBody: null,
+  satisfactionSurveyEnabled: false,
   satisfactionSurveyBody: null,
   trustpilotUrl: null,
   aiEnabled: false,
@@ -211,6 +213,7 @@ export default function AppSettingsPage() {
         setSettings({
           defaultAssigneeId: s.defaultAssigneeId ?? null,
           autoReplyBody: s.autoReplyBody ?? '',
+          satisfactionSurveyEnabled: s.satisfactionSurveyEnabled ?? false,
           satisfactionSurveyBody: s.satisfactionSurveyBody ?? '',
           trustpilotUrl: s.trustpilotUrl ?? '',
           aiEnabled: s.aiEnabled ?? false,
@@ -363,16 +366,39 @@ export default function AppSettingsPage() {
 
           {/* Satisfaction Survey */}
           <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
-            <h2 className="mb-1 text-sm font-semibold text-gray-900 dark:text-gray-100">Satisfaction Survey Email</h2>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-              Automatically sent when a ticket is closed. Leave blank to disable.
-            </p>
-            <RichTextEditor
-              value={settings.satisfactionSurveyBody ?? ''}
-              onChange={(val) => set('satisfactionSurveyBody', val)}
-              placeholder="e.g. Your ticket has been resolved. We'd love your feedback..."
-              minHeight={160}
-            />
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Satisfaction Survey Email</h2>
+              <button
+                type="button"
+                onClick={() => set('satisfactionSurveyEnabled', !settings.satisfactionSurveyEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  settings.satisfactionSurveyEnabled ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+                aria-label="Toggle satisfaction survey email"
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  settings.satisfactionSurveyEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {!settings.satisfactionSurveyEnabled ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Enable to automatically email customers a rating request when their ticket is resolved or closed.
+              </p>
+            ) : (
+              <>
+                <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                  Automatically sent when a ticket is resolved or closed. Rating buttons are appended below this body.
+                </p>
+                <RichTextEditor
+                  value={settings.satisfactionSurveyBody ?? ''}
+                  onChange={(val) => set('satisfactionSurveyBody', val)}
+                  placeholder="e.g. Your ticket has been resolved. We'd love your feedback..."
+                  minHeight={160}
+                />
+              </>
+            )}
           </div>
 
           {/* Trustpilot URL */}

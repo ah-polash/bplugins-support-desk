@@ -87,7 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Send satisfaction survey when ticket is RESOLVED or CLOSED
     if (status === 'RESOLVED' || status === 'CLOSED') {
       const settings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } })
-      if (settings?.satisfactionSurveyBody) {
+      if (settings?.satisfactionSurveyEnabled && settings?.satisfactionSurveyBody) {
         // Only send once — skip if a rating token already exists for this ticket
         const existing = await prisma.satisfactionRating.findUnique({ where: { ticketId } })
         if (!existing) {

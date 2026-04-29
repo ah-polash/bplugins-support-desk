@@ -61,6 +61,7 @@ model AppSettings {
   defaultAssigneeId      String?
   defaultAssignee        User?    @relation("DefaultAssignee", fields: [defaultAssigneeId], references: [id])
   autoReplyBody          String?  @db.Text
+  satisfactionSurveyEnabled Boolean @default(false)
   satisfactionSurveyBody String?  @db.Text
   trustpilotUrl          String?
   aiEnabled              Boolean  @default(false)

@@ -12,6 +12,7 @@ const DEFAULTS = {
   defaultAssigneeId: null,
   defaultAssignee: null,
   autoReplyBody: null,
+  satisfactionSurveyEnabled: false,
   satisfactionSurveyBody: DEFAULT_SATISFACTION_BODY,
   trustpilotUrl: null,
   aiEnabled: false,
@@ -70,6 +71,7 @@ export async function PATCH(req: NextRequest) {
     const {
       defaultAssigneeId,
       autoReplyBody,
+      satisfactionSurveyEnabled,
       satisfactionSurveyBody,
       trustpilotUrl,
       aiEnabled,
@@ -106,6 +108,7 @@ export async function PATCH(req: NextRequest) {
     const data = {
       defaultAssigneeId: defaultAssigneeId || null,
       autoReplyBody: autoReplyBody ?? null,
+      satisfactionSurveyEnabled: satisfactionSurveyEnabled ?? false,
       satisfactionSurveyBody: satisfactionSurveyBody ?? null,
       trustpilotUrl: trustpilotUrl || null,
       aiEnabled: aiEnabled ?? false,
