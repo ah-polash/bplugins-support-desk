@@ -32,7 +32,7 @@ export default function CreateTicketModal({ open, onClose, onCreated }: Props) {
   const [tags, setTags] = useState('')
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [htmlBody, setHtmlBody] = useState('')
-  const [sendEmail, setSendEmail] = useState(false)
+  const [sendEmail, setSendEmail] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function CreateTicketModal({ open, onClose, onCreated }: Props) {
     setTags('')
     setAssigneeIds([])
     setHtmlBody('')
-    setSendEmail(false)
+    setSendEmail(true)
 
     fetch('/api/email-accounts')
       .then(r => r.ok ? r.json() : [])
